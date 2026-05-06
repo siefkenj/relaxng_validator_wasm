@@ -1,17 +1,32 @@
+[workspace]
+resolver = "2"
+members = [
+    ".",
+    "relaxng-rust/relaxng-syntax",
+    "relaxng-rust/relaxng-model",
+    "relaxng-rust/relaxng-validator",
+    "relaxng-rust/relaxng-tool",
+]
+
 [package]
-name = "relaxng-validator"
+name = "relaxng-validator-wasm"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "relaxng_validator"
+name = "relaxng_validator_wasm"
 crate-type = ["cdylib", "rlib"]
 
 [[bin]]
-name = "relaxng-validator"
+name = "relaxng-validator-wasm"
 path = "src/main.rs"
 
 [dependencies]
+relaxng_validator_lib = { package = "relaxng-validator", path = "relaxng-rust/relaxng-validator" }
+relaxng-model = { path = "relaxng-rust/relaxng-model" }
+xmlparser = "0.13.3"
+serde_json = "1.0.149"
+serde = { version = "1.0.228", features = ["derive"] }
 
 [profile.release]
 opt-level = "s"   # optimize for binary size when targeting wasm

@@ -1,0 +1,3 @@
+[submodule "relaxng-rust"]
+	path = relaxng-rust
+	url = https://github.com/dholroyd/relaxng-rust
