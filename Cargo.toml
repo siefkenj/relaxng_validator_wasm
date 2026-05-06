@@ -1,0 +1,17 @@
+[package]
+name = "relaxng-validator"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "relaxng_validator"
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "relaxng-validator"
+path = "src/main.rs"
+
+[dependencies]
+
+[profile.release]
+opt-level = "s"   # optimize for binary size when targeting wasm
