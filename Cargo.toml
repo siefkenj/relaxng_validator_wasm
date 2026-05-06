@@ -27,6 +27,7 @@ relaxng-model = { path = "relaxng-rust/relaxng-model" }
 xmlparser = "0.13.3"
 serde_json = "1.0.149"
 serde = { version = "1.0.228", features = ["derive"] }
+codemap-diagnostic = "0.1.1"
 
 [profile.release]
 opt-level = "s"   # optimize for binary size when targeting wasm
