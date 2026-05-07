@@ -1,14 +1,14 @@
 use crate::error_filter::trim_redundant_errors;
 use crate::expected_attrs;
 use crate::validation_types::{SpanInfo, ValidationError};
+use crate::vfs::VirtualFileSystem;
 use crate::xmlparser_serde;
 use crate::xmlparser_serde::SerToken;
-use relaxng_model::{Compiler, Files, RelaxError, Syntax};
+use relaxng_model::{Compiler, Syntax};
 use relaxng_validator_lib::{Validator, ValidatorError};
 use serde_json::json;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::io;
 use std::path::Path;
 
 /// Extracts expected element names from validator diagnostics for a `NotAllowed` error.
@@ -67,27 +67,14 @@ fn to_validation_error(
     }
 }
 
-/// Validates `doc` (XML) against `schema` (RNC compact syntax).
+/// Validates `doc` (XML) against the schema at `schema_path` within `vfs`.
 ///
 /// Returns:
 /// - `Ok(())` if valid
 /// - `Err(Vec<ValidationError>)` with filtered, non-redundant errors if invalid
-pub fn check_simple(schema: &str, doc: &str) -> Result<(), Vec<ValidationError>> {
-    struct FS(String);
-    impl Files for FS {
-        fn load(&self, name: &Path) -> Result<String, RelaxError> {
-            match name.to_str().unwrap() {
-                "main.rnc" => Ok(self.0.clone()),
-                _ => Err(RelaxError::Io(
-                    name.to_path_buf(),
-                    io::Error::from(io::ErrorKind::NotFound),
-                )),
-            }
-        }
-    }
-
-    let mut c = Compiler::new(FS(schema.to_string()), Syntax::Compact);
-    let input = Path::new("main.rnc");
+pub fn check_simple(vfs: VirtualFileSystem, schema_path: &str, doc: &str) -> Result<(), Vec<ValidationError>> {
+    let mut c = Compiler::new(vfs, Syntax::Compact);
+    let input = Path::new(schema_path);
     let compiled = match c.compile(input) {
         Ok(s) => s,
         Err(e) => {
@@ -166,5 +153,6 @@ pub fn check_simple(schema: &str, doc: &str) -> Result<(), Vec<ValidationError>>
 ///
 /// Error shape: `{ "errors": [...] }`.
 pub fn check_with_json_return(schema: &str, doc: &str) -> Result<(), String> {
-    check_simple(schema, doc).map_err(|errors| json!({ "errors": errors }).to_string())
+    let vfs = VirtualFileSystem::from_single("main.rnc", schema);
+    check_simple(vfs, "main.rnc", doc).map_err(|errors| json!({ "errors": errors }).to_string())
 }

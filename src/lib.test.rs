@@ -1,7 +1,8 @@
-use super::{check_simple, ValidationError};
+use super::{check_simple, ValidationError, VirtualFileSystem};
 
 fn not_allowed_errors(schema: &str, doc: &str) -> Vec<ValidationError> {
-    check_simple(schema, doc)
+    let vfs = VirtualFileSystem::from_single("main.rnc", schema);
+    check_simple(vfs, "main.rnc", doc)
         .unwrap_err()
         .into_iter()
         .filter(|e| matches!(e, ValidationError::NotAllowed { .. }))
@@ -149,7 +150,7 @@ fn expected_attributes_empty_for_element_errors() {
 fn valid_document_returns_ok() {
     let schema = r#"start = element root { attribute id { text }, element child { text } }"#;
     let doc = r#"<?xml version="1.0"?><root id="x"><child>hello</child></root>"#;
-    assert!(check_simple(schema, doc).is_ok());
+    assert!(check_simple(VirtualFileSystem::from_single("main.rnc", schema), "main.rnc", doc).is_ok());
 }
 
 #[test]
