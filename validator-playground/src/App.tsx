@@ -37,12 +37,15 @@ function App() {
 
     useEffect(() => {
         const loadAssets = async () => {
+            const assetUrl = (name: string) =>
+                `${import.meta.env.BASE_URL}assets/${name}`;
+
             const [pretextRnc, pretextRng, pretextDevRnc, testGoodXml] =
                 await Promise.all([
-                    fetch("/assets/pretext.rnc").then((r) => r.text()),
-                    fetch("/assets/pretext.rng").then((r) => r.text()),
-                    fetch("/assets/pretext-dev.rnc").then((r) => r.text()),
-                    fetch("/assets/test-good.xml").then((r) => r.text()),
+                    fetch(assetUrl("pretext.rnc")).then((r) => r.text()),
+                    fetch(assetUrl("pretext.rng")).then((r) => r.text()),
+                    fetch(assetUrl("pretext-dev.rnc")).then((r) => r.text()),
+                    fetch(assetUrl("test-good.xml")).then((r) => r.text()),
                 ]);
 
             setSchemaAssets({
