@@ -42,6 +42,9 @@ jobs:
       - name: Run Rust tests
         run: cargo test --workspace --exclude relaxng-validator-python
 
+      - name: Run end-to-end tests
+        run: bash tests/run_validator_cases.sh
+
       - name: Run WASM/TypeScript tests
         run: npm test
 
