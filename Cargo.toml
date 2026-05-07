@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     ".",
+    "wasm-api",
     "relaxng-rust/relaxng-syntax",
     "relaxng-rust/relaxng-model",
     "relaxng-rust/relaxng-validator",
