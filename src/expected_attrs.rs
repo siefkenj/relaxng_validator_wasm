@@ -24,7 +24,10 @@ fn format_namespace(namespace_uri: &str, desc: &mut String) {
 
 fn describe_nameclass(nc: &NameClass, desc: &mut String) {
     match nc {
-        NameClass::Named { namespace_uri, name } => {
+        NameClass::Named {
+            namespace_uri,
+            name,
+        } => {
             format_namespace(namespace_uri, desc);
             desc.push_str(name);
         }
@@ -101,9 +104,7 @@ fn collect_attrs(p: &Pattern, visited: &mut HashSet<*const ()>, result: &mut Vec
             }
         }
 
-        Pattern::Choice(pats, ..)
-        | Pattern::Group(pats, ..)
-        | Pattern::Interleave(pats, ..) => {
+        Pattern::Choice(pats, ..) | Pattern::Group(pats, ..) | Pattern::Interleave(pats, ..) => {
             for q in pats {
                 collect_attrs(q, visited, result);
             }
@@ -164,12 +165,11 @@ pub fn find_expected_attrs(
             }
         }
 
-        Pattern::Choice(pats, ..)
-        | Pattern::Group(pats, ..)
-        | Pattern::Interleave(pats, ..) => pats
-            .iter()
-            .flat_map(|q| find_expected_attrs(q, el_local, visited))
-            .collect(),
+        Pattern::Choice(pats, ..) | Pattern::Group(pats, ..) | Pattern::Interleave(pats, ..) => {
+            pats.iter()
+                .flat_map(|q| find_expected_attrs(q, el_local, visited))
+                .collect()
+        }
 
         Pattern::OneOrMore(inner, ..)
         | Pattern::ZeroOrMore(inner, ..)

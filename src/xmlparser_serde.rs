@@ -190,9 +190,7 @@ impl<'a> From<Token<'a>> for SerToken<'a> {
                 definition: definition.into(),
                 span: span.into(),
             },
-            Token::DtdEnd { span } => Self::DtdEnd {
-                span: span.into(),
-            },
+            Token::DtdEnd { span } => Self::DtdEnd { span: span.into() },
             Token::ElementStart {
                 prefix,
                 local,
@@ -217,9 +215,7 @@ impl<'a> From<Token<'a>> for SerToken<'a> {
                 end: end.into(),
                 span: span.into(),
             },
-            Token::Text { text } => Self::Text {
-                text: text.into(),
-            },
+            Token::Text { text } => Self::Text { text: text.into() },
             Token::Cdata { text, span } => Self::Cdata {
                 text: text.into(),
                 span: span.into(),

@@ -12,7 +12,11 @@ use std::collections::HashSet;
 use std::path::Path;
 
 /// Extracts expected element names from validator diagnostics for a `NotAllowed` error.
-fn extract_expected_elements(v: &Validator<'_>, doc: &str, err: &ValidatorError<'_>) -> Vec<String> {
+fn extract_expected_elements(
+    v: &Validator<'_>,
+    doc: &str,
+    err: &ValidatorError<'_>,
+) -> Vec<String> {
     let (_, diagnostics) = v.diagnostic("doc".to_string(), doc.to_string(), err);
     diagnostics
         .iter()
@@ -72,14 +76,20 @@ fn to_validation_error(
 /// Returns:
 /// - `Ok(())` if valid
 /// - `Err(Vec<ValidationError>)` with filtered, non-redundant errors if invalid
-pub fn check_simple(vfs: VirtualFileSystem, schema_path: &str, doc: &str) -> Result<(), Vec<ValidationError>> {
+pub fn check_simple(
+    vfs: VirtualFileSystem,
+    schema_path: &str,
+    doc: &str,
+) -> Result<(), Vec<ValidationError>> {
     let mut c = Compiler::new(vfs, Syntax::Auto);
     let input = Path::new(schema_path);
     let compiled = match c.compile(input) {
         Ok(s) => s,
-        Err(e) => return Err(vec![ValidationError::Xml {
-            message: format!("{e:?}"),
-        }]),
+        Err(e) => {
+            return Err(vec![ValidationError::Xml {
+                message: format!("{e:?}"),
+            }])
+        }
     };
 
     // Keep a clone of the model for attribute expectation lookup.
@@ -137,7 +147,11 @@ pub fn check_simple(vfs: VirtualFileSystem, schema_path: &str, doc: &str) -> Res
                 ValidatorError::NotAllowed(_) => (extract_expected_elements(&v, doc, &err), vec![]),
                 _ => (vec![], vec![]),
             };
-            errors.push(to_validation_error(err, expected_elements, expected_attributes));
+            errors.push(to_validation_error(
+                err,
+                expected_elements,
+                expected_attributes,
+            ));
         }
     }
 

@@ -1,5 +1,5 @@
 use clap::Parser;
-use relaxng_validator_wasm::{VirtualFileSystem, check_simple};
+use relaxng_validator_wasm::{check_simple, VirtualFileSystem};
 use std::path::PathBuf;
 use std::process;
 

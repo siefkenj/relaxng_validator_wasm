@@ -50,8 +50,12 @@ impl Files for VirtualFileSystem {
         let key = name.to_string_lossy();
         match self.0.get(key.as_ref()) {
             Some(VfsFileContent::Text(s)) => Ok(s.clone()),
-            Some(VfsFileContent::Bytes(b)) => String::from_utf8(b.clone())
-                .map_err(|e| RelaxError::Io(name.to_path_buf(), io::Error::new(io::ErrorKind::InvalidData, e))),
+            Some(VfsFileContent::Bytes(b)) => String::from_utf8(b.clone()).map_err(|e| {
+                RelaxError::Io(
+                    name.to_path_buf(),
+                    io::Error::new(io::ErrorKind::InvalidData, e),
+                )
+            }),
             None => Err(RelaxError::Io(
                 name.to_path_buf(),
                 io::Error::from(io::ErrorKind::NotFound),
