@@ -86,9 +86,8 @@ pub fn check_simple(
     let compiled = match c.compile(input) {
         Ok(s) => s,
         Err(e) => {
-            return Err(vec![ValidationError::Xml {
-                message: format!("{e:?}"),
-            }])
+            c.dump_diagnostic(&e);
+            panic!("{e:?}");
         }
     };
 
