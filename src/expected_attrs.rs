@@ -10,22 +10,34 @@ use std::rc::Rc;
 // describe_nameclass — duplicated from the submodule's free function
 // ---------------------------------------------------------------------------
 
+const XML_NS: &str = "http://www.w3.org/XML/1998/namespace";
+
+fn format_namespace(namespace_uri: &str, desc: &mut String) {
+    if namespace_uri == XML_NS {
+        desc.push_str("xml:");
+    } else if !namespace_uri.is_empty() {
+        desc.push('{');
+        desc.push_str(namespace_uri);
+        desc.push('}');
+    }
+}
+
 fn describe_nameclass(nc: &NameClass, desc: &mut String) {
     match nc {
         NameClass::Named { namespace_uri, name } => {
-            if !namespace_uri.is_empty() {
-                desc.push('{');
-                desc.push_str(namespace_uri);
-                desc.push('}');
-            }
+            format_namespace(namespace_uri, desc);
             desc.push_str(name);
         }
         NameClass::NsName {
             namespace_uri,
             except,
         } => {
-            desc.push_str(namespace_uri);
-            desc.push_str(":*");
+            if namespace_uri == XML_NS {
+                desc.push_str("xml:*");
+            } else {
+                desc.push_str(namespace_uri);
+                desc.push_str(":*");
+            }
             if let Some(except) = except {
                 desc.push('-');
                 describe_nameclass(except, desc);
@@ -81,7 +93,13 @@ fn nameclass_matches_local(nc: &NameClass, local: &str) -> bool {
 
 fn collect_attrs(p: &Pattern, visited: &mut HashSet<*const ()>, result: &mut Vec<String>) {
     match p {
-        Pattern::Attribute(nc, ..) => result.push(describe_nameclass_str(nc)),
+        Pattern::Attribute(nc, ..) => {
+            // Skip wildcard nameclasses (AnyName / NsName) — they represent
+            // foreign-content catch-alls and are not useful as diagnostics.
+            if !matches!(nc, NameClass::AnyName { .. } | NameClass::NsName { .. }) {
+                result.push(describe_nameclass_str(nc));
+            }
+        }
 
         Pattern::Choice(pats, ..)
         | Pattern::Group(pats, ..)
@@ -141,8 +159,8 @@ pub fn find_expected_attrs(
                 collect_attrs(content, &mut HashSet::new(), &mut result);
                 result
             } else {
-                // Don't recurse into the content of non-matching elements.
-                vec![]
+                // The target element may be nested inside this element's content.
+                find_expected_attrs(content, el_local, visited)
             }
         }
 
