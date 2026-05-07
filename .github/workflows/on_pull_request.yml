@@ -151,9 +151,10 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: wasm-api-pkg-zip
+          path: artifacts
 
       - name: Unpack WASM package
-        run: unzip -o wasm-api-pkg.zip
+        run: unzip -o artifacts/wasm-api-pkg.zip
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -163,6 +164,9 @@ jobs:
 
       - name: Install npm dependencies
         run: npm ci
+
+      - name: Ensure playground uses downloaded WASM package
+        run: npm install --workspace validator-playground relaxng-validator-wasm-api@file:../wasm-api/pkg --no-save
 
       - name: Build playground app
         run: npm run build:web
