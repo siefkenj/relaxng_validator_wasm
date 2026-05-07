@@ -147,6 +147,14 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Download WASM package artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: wasm-api-pkg-zip
+
+      - name: Unpack WASM package
+        run: unzip -o wasm-api-pkg.zip
+
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
