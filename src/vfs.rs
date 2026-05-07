@@ -34,6 +34,15 @@ impl VirtualFileSystem {
         map.insert(path.into(), VfsFileContent::Text(content.into()));
         VirtualFileSystem(map)
     }
+
+    /// Create a VFS from a map of path → text content.
+    pub fn from_map(map: HashMap<String, String>) -> Self {
+        VirtualFileSystem(
+            map.into_iter()
+                .map(|(k, v)| (k, VfsFileContent::Text(v)))
+                .collect(),
+        )
+    }
 }
 
 impl Files for VirtualFileSystem {

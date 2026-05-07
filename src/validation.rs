@@ -73,14 +73,13 @@ fn to_validation_error(
 /// - `Ok(())` if valid
 /// - `Err(Vec<ValidationError>)` with filtered, non-redundant errors if invalid
 pub fn check_simple(vfs: VirtualFileSystem, schema_path: &str, doc: &str) -> Result<(), Vec<ValidationError>> {
-    let mut c = Compiler::new(vfs, Syntax::Compact);
+    let mut c = Compiler::new(vfs, Syntax::Auto);
     let input = Path::new(schema_path);
     let compiled = match c.compile(input) {
         Ok(s) => s,
-        Err(e) => {
-            c.dump_diagnostic(&e);
-            panic!("{e:?}");
-        }
+        Err(e) => return Err(vec![ValidationError::Xml {
+            message: format!("{e:?}"),
+        }]),
     };
 
     // Keep a clone of the model for attribute expectation lookup.
