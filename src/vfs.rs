@@ -1,6 +1,6 @@
+use indexmap::IndexMap;
 use relaxng_model::{Files, RelaxError};
 use serde::Deserialize;
-use std::collections::HashMap;
 use std::io;
 use std::path::Path;
 
@@ -25,23 +25,30 @@ pub enum VfsFileContent {
 ///
 /// Keys are file paths; values are either a UTF-8 string or an array of bytes.
 #[derive(Debug, Deserialize)]
-pub struct VirtualFileSystem(HashMap<String, VfsFileContent>);
+pub struct VirtualFileSystem(IndexMap<String, VfsFileContent>);
 
 impl VirtualFileSystem {
     /// Create a VFS with a single file at `path` containing `content`.
     pub fn from_single(path: impl Into<String>, content: impl Into<String>) -> Self {
-        let mut map = HashMap::new();
+        let mut map = IndexMap::new();
         map.insert(path.into(), VfsFileContent::Text(content.into()));
         VirtualFileSystem(map)
     }
 
     /// Create a VFS from a map of path → text content.
-    pub fn from_map(map: HashMap<String, String>) -> Self {
+    /// Note: `std::collections::HashMap` does not preserve insertion order; consider
+    /// building the map with [`indexmap::IndexMap`] if order matters.
+    pub fn from_map(map: std::collections::HashMap<String, String>) -> Self {
         VirtualFileSystem(
             map.into_iter()
                 .map(|(k, v)| (k, VfsFileContent::Text(v)))
                 .collect(),
         )
+    }
+
+    /// Returns the first key in insertion order, or `None` if the VFS is empty.
+    pub fn first_key(&self) -> Option<&str> {
+        self.0.keys().next().map(|s| s.as_str())
     }
 }
 

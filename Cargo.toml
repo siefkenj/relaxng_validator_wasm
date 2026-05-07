@@ -25,7 +25,9 @@ path = "src/main.rs"
 relaxng_validator_lib = { package = "relaxng-validator", path = "relaxng-rust/relaxng-validator" }
 relaxng-model = { path = "relaxng-rust/relaxng-model" }
 xmlparser = "0.13.3"
-serde_json = { version = "1.0.149", features = ["preserve_order"] }
+serde_json = "1.0.149"
+serde-json-wasm = "1"
+indexmap = { version = "2", features = ["serde"] }
 serde = { version = "1.0.228", features = ["derive"] }
 codemap-diagnostic = "0.1.1"
 

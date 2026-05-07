@@ -6,7 +6,7 @@ use crate::xmlparser_serde;
 use crate::xmlparser_serde::SerToken;
 use relaxng_model::{model, Compiler, Syntax};
 use relaxng_validator_lib::{Validator, ValidatorError};
-use serde_json::json;
+
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -189,15 +189,11 @@ fn compile_vfs(vfs: VirtualFileSystem, schema_path: &str) -> CompiledValidator {
 /// Parse a JSON VFS string and compile the grammar (first key = entrypoint).
 /// Returns a [`CompiledValidator`] whose `.validate()` can be called repeatedly.
 pub fn compile_from_vfs_json(vfs_json: &str) -> CompiledValidator {
-    let map: serde_json::Map<String, serde_json::Value> =
-        serde_json::from_str(vfs_json).expect("invalid JSON VFS");
-    let first_key = map
-        .keys()
-        .next()
+    let vfs: VirtualFileSystem = serde_json_wasm::from_str(vfs_json).expect("invalid JSON VFS");
+    let first_key = vfs
+        .first_key()
         .expect("VFS JSON object has no entries")
-        .clone();
-    let vfs: VirtualFileSystem =
-        serde_json::from_value(serde_json::Value::Object(map)).expect("invalid VFS content");
+        .to_string();
     compile_vfs(vfs, &first_key)
 }
 
@@ -228,6 +224,11 @@ pub fn check_simple(
 ///
 /// Error shape: `{ "errors": [...] }`.
 pub fn check_with_json_return(schema: &str, doc: &str) -> Result<(), String> {
+    #[derive(serde::Serialize)]
+    struct ErrorsResponse<'a> {
+        errors: &'a [ValidationError],
+    }
     let vfs = VirtualFileSystem::from_single("main.rnc", schema);
-    check_simple(vfs, "main.rnc", doc).map_err(|errors| json!({ "errors": errors }).to_string())
+    check_simple(vfs, "main.rnc", doc)
+        .map_err(|errors| serde_json_wasm::to_string(&ErrorsResponse { errors: &errors }).unwrap())
 }
