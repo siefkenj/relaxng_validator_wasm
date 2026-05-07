@@ -2,10 +2,15 @@
     "name": "relaxng-validator-wasm-api",
     "version": "0.1.0",
     "private": true,
+    "workspaces": [
+        "validator-playground"
+    ],
     "type": "module",
     "scripts": {
         "build": "wasm-pack build wasm-api --target bundler",
         "build:node": "wasm-pack build wasm-api --target bundler --out-dir pkg",
+        "build:web": "npm run build --workspace validator-playground",
+        "dev:web": "npm run dev --workspace validator-playground",
         "pretest": "wasm-pack build wasm-api --target bundler --out-dir pkg --dev",
         "test": "vitest run",
         "test:watch": "vitest"
