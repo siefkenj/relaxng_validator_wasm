@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  rust-tests:
+    name: Rust Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run Rust tests
+        run: cargo test --workspace --exclude relaxng-validator-python
+
+  wasm-typescript-tests:
+    name: WASM TypeScript Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Setup wasm-pack
+        uses: jetli/wasm-pack-action@v0.4.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Run WASM/TypeScript tests
+        run: npm test
+
+  python-tests:
+    name: Python Tests (PyO3)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Create virtual environment and install test dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install maturin pytest
+
+      - name: Build and install Python extension
+        run: .venv/bin/maturin develop
+
+      - name: Run Python tests
+        run: .venv/bin/pytest python-api/tests -v
