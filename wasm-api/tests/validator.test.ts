@@ -4,7 +4,7 @@ import type {
     ValidationResult,
     WasmValidationError,
 } from "../pkg/relaxng_validator_wasm_api.js";
-import * as wasm from "../pkg/relaxng_validator_wasm_api.js";
+import * as relaxngValidator from "../pkg/relaxng_validator_wasm_api.js";
 
 // pkg is built by `wasm-pack build wasm-api --target bundler --out-dir pkg`.
 // vite-plugin-wasm handles the WASM binary loading transparently.
@@ -40,7 +40,7 @@ function notAllowedErrors(result: ValidationResult) {
 
 describe("validate()", () => {
     it("returns empty errors for a valid document", () => {
-        const result = wasm.validate(
+        const result = relaxngValidator.validate(
             SIMPLE_SCHEMA,
             '<?xml version="1.0"?><root>hello</root>',
         );
@@ -48,7 +48,7 @@ describe("validate()", () => {
     });
 
     it("returns errors for an invalid document", () => {
-        const result = wasm.validate(
+        const result = relaxngValidator.validate(
             SIMPLE_SCHEMA,
             '<?xml version="1.0"?><root><unexpected/></root>',
         );
@@ -56,7 +56,7 @@ describe("validate()", () => {
     });
 
     it("lists expected elements on a wrong-element error", () => {
-        const result = wasm.validate(
+        const result = relaxngValidator.validate(
             CHOICE_SCHEMA,
             '<?xml version="1.0"?><root><baz/></root>',
         );
@@ -69,7 +69,7 @@ describe("validate()", () => {
     });
 
     it("reports expected_elements empty when content model is text", () => {
-        const result = wasm.validate(
+        const result = relaxngValidator.validate(
             SIMPLE_SCHEMA,
             '<?xml version="1.0"?><root><unexpected/></root>',
         );
@@ -79,7 +79,7 @@ describe("validate()", () => {
     });
 
     it("lists expected attributes on a bad-attribute error", () => {
-        const result = wasm.validate(
+        const result = relaxngValidator.validate(
             ATTRS_SCHEMA,
             '<?xml version="1.0"?><book bad-attr="x"><title>Hi</title></book>',
         );
@@ -92,7 +92,7 @@ describe("validate()", () => {
     });
 
     it("reports expected_attributes empty for element-level errors", () => {
-        const result = wasm.validate(
+        const result = relaxngValidator.validate(
             CHOICE_SCHEMA,
             '<?xml version="1.0"?><root><baz/></root>',
         );
@@ -105,7 +105,7 @@ describe("validate()", () => {
     });
 
     it("each error has a type discriminant", () => {
-        const result = wasm.validate(
+        const result = relaxngValidator.validate(
             SIMPLE_SCHEMA,
             '<?xml version="1.0"?><root><bad/></root>',
         );
@@ -123,7 +123,7 @@ describe("compile_validator() / WasmValidator", () => {
     let validator: WasmValidator;
 
     beforeAll(() => {
-        validator = wasm.compile_validator(SIMPLE_SCHEMA);
+        validator = relaxngValidator.compile_validator(SIMPLE_SCHEMA);
     });
 
     it("returns empty errors for a valid document", () => {
@@ -169,7 +169,7 @@ describe("first key as grammar entry point", () => {
             "main.rnc": "start = element doc { text }",
             "other.rnc": "start = element other { text }",
         });
-        const v = wasm.compile_validator(schema);
+        const v = relaxngValidator.compile_validator(schema);
         expect(
             v.validate('<?xml version="1.0"?><doc>hi</doc>').errors,
         ).toHaveLength(0);
@@ -189,7 +189,7 @@ describe("VFS byte-array file content", () => {
         const schema = "start = element root { text }";
         const bytes = Array.from(new TextEncoder().encode(schema));
         const vfsJson = JSON.stringify({ "main.rnc": bytes });
-        const result = wasm.validate(
+        const result = relaxngValidator.validate(
             vfsJson,
             '<?xml version="1.0"?><root>hello</root>',
         );
