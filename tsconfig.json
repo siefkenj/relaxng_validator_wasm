@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "./dist",
+    "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "relaxng-validator-wasm-api": ["./pkg"]
+    }
+  },
+  "include": ["wasm-api/tests/**/*.ts"],
+  "exclude": ["node_modules", "pkg", "dist"]
+}
