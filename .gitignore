@@ -1,3 +1,13 @@
 /target
 wasm-api/pkg
 node_modules
+*.so
+*.pyd
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.egg-info
+dist
+build
