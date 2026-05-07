@@ -1,0 +1,19 @@
+{
+    "name": "relaxng-validator-wasm-api",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "wasm-pack build wasm-api --target bundler",
+        "build:node": "wasm-pack build wasm-api --target bundler --out-dir pkg",
+        "pretest": "wasm-pack build wasm-api --target bundler --out-dir pkg --dev",
+        "test": "vitest run",
+        "test:watch": "vitest"
+    },
+    "devDependencies": {
+        "@types/node": "^22.0.0",
+        "typescript": "^5.0.0",
+        "vite-plugin-wasm": "^3.6.0",
+        "vitest": "^3.0.0"
+    }
+}
