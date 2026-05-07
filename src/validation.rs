@@ -4,12 +4,14 @@ use crate::validation_types::{SpanInfo, ValidationError};
 use crate::vfs::VirtualFileSystem;
 use crate::xmlparser_serde;
 use crate::xmlparser_serde::SerToken;
-use relaxng_model::{Compiler, Syntax};
+use relaxng_model::{model, Compiler, Syntax};
 use relaxng_validator_lib::{Validator, ValidatorError};
 use serde_json::json;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::Path;
+use std::rc::Rc;
 
 /// Extracts expected element names from validator diagnostics for a `NotAllowed` error.
 fn extract_expected_elements(
@@ -71,28 +73,32 @@ fn to_validation_error(
     }
 }
 
-/// Validates `doc` (XML) against the schema at `schema_path` within `vfs`.
-///
-/// Returns:
-/// - `Ok(())` if valid
-/// - `Err(Vec<ValidationError>)` with filtered, non-redundant errors if invalid
-pub fn check_simple(
-    vfs: VirtualFileSystem,
-    schema_path: &str,
+// ---------------------------------------------------------------------------
+// CompiledValidator
+// ---------------------------------------------------------------------------
+
+/// A compiled grammar that can validate XML documents repeatedly.
+pub struct CompiledValidator {
+    schema_start: Rc<RefCell<Option<model::DefineRule>>>,
+}
+
+impl CompiledValidator {
+    /// Validate `doc` (XML string) against this compiled grammar.
+    pub fn validate(&self, doc: &str) -> Result<(), Vec<ValidationError>> {
+        run_validation(self.schema_start.clone(), doc)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Inner validation loop (shared by check_simple and CompiledValidator)
+// ---------------------------------------------------------------------------
+
+fn run_validation(
+    schema_start: Rc<RefCell<Option<model::DefineRule>>>,
     doc: &str,
 ) -> Result<(), Vec<ValidationError>> {
-    let mut c = Compiler::new(vfs, Syntax::Auto);
-    let input = Path::new(schema_path);
-    let compiled = match c.compile(input) {
-        Ok(s) => s,
-        Err(e) => {
-            c.dump_diagnostic(&e);
-            panic!("{e:?}");
-        }
-    };
-
     // Keep a clone of the model for attribute expectation lookup.
-    let schema_model = compiled.start.clone();
+    let schema_model = schema_start.clone();
 
     // Build a lookup from attribute token span start -> owning element local name.
     let attr_span_to_element: HashMap<usize, String> = {
@@ -118,7 +124,7 @@ pub fn check_simple(
     };
 
     let reader = xmlparser::Tokenizer::from(doc);
-    let mut v = Validator::new(compiled.start, reader).unwrap();
+    let mut v = Validator::new(schema_start, reader).unwrap();
     let mut errors = Vec::new();
     while let Some(i) = v.validate_next() {
         if let Err(err) = i {
@@ -159,6 +165,63 @@ pub fn check_simple(
     } else {
         Err(trim_redundant_errors(errors))
     }
+}
+
+// ---------------------------------------------------------------------------
+// Compile a VFS JSON string into a CompiledValidator
+// ---------------------------------------------------------------------------
+
+fn compile_vfs(vfs: VirtualFileSystem, schema_path: &str) -> CompiledValidator {
+    let mut c = Compiler::new(vfs, Syntax::Auto);
+    let input = Path::new(schema_path);
+    let compiled = match c.compile(input) {
+        Ok(s) => s,
+        Err(e) => {
+            c.dump_diagnostic(&e);
+            panic!("{e:?}");
+        }
+    };
+    CompiledValidator {
+        schema_start: compiled.start,
+    }
+}
+
+/// Parse a JSON VFS string and compile the grammar (first key = entrypoint).
+/// Returns a [`CompiledValidator`] whose `.validate()` can be called repeatedly.
+pub fn compile_from_vfs_json(vfs_json: &str) -> CompiledValidator {
+    let map: serde_json::Map<String, serde_json::Value> =
+        serde_json::from_str(vfs_json).expect("invalid JSON VFS");
+    let first_key = map
+        .keys()
+        .next()
+        .expect("VFS JSON object has no entries")
+        .clone();
+    let vfs: VirtualFileSystem =
+        serde_json::from_value(serde_json::Value::Object(map)).expect("invalid VFS content");
+    compile_vfs(vfs, &first_key)
+}
+
+// ---------------------------------------------------------------------------
+// Public one-shot and legacy API
+// ---------------------------------------------------------------------------
+
+/// Parse a JSON VFS string, compile the grammar (first key = entrypoint),
+/// and validate `doc` in one step.
+pub fn validate_with_vfs_json(vfs_json: &str, doc: &str) -> Result<(), Vec<ValidationError>> {
+    compile_from_vfs_json(vfs_json).validate(doc)
+}
+
+/// Validates `doc` (XML) against the schema at `schema_path` within `vfs`.
+///
+/// Returns:
+/// - `Ok(())` if valid
+/// - `Err(Vec<ValidationError>)` with filtered, non-redundant errors if invalid
+pub fn check_simple(
+    vfs: VirtualFileSystem,
+    schema_path: &str,
+    doc: &str,
+) -> Result<(), Vec<ValidationError>> {
+    compile_vfs(vfs, schema_path).validate(doc)
 }
 
 /// Validates like [`check_simple`], but returns a JSON string on failure.
