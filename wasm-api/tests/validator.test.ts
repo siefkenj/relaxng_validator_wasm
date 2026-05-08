@@ -27,6 +27,16 @@ const ATTRS_SCHEMA = JSON.stringify({
         "start = element book { attribute isbn { text }, attribute year { text }?, element title { text } }",
 });
 
+const MANY_CHOICES_SCHEMA = JSON.stringify({
+    "main.rnc":
+        "start = element root { element a { text } | element b { text } | element c { text } | element d { text } | element e { text } | element f { text } | element g { text } | element h { text } }",
+});
+
+const MANY_ATTRS_SCHEMA = JSON.stringify({
+    "main.rnc":
+        "start = element book { attribute a { text }?, attribute b { text }?, attribute c { text }?, attribute d { text }?, attribute e { text }?, attribute f { text }?, attribute g { text }?, attribute h { text }?, element title { text } }",
+});
+
 function notAllowedErrors(result: ValidationResult) {
     return result.errors.filter(
         (e): e is Extract<WasmValidationError, { type: "NotAllowed" }> =>
@@ -68,10 +78,35 @@ describe("validate()", () => {
         expect(errs.length).toBeGreaterThan(0);
 
         expect(errs[0]).toMatchObject({
-            token: { type: "ElementStart", span: { text: "baz", start: 28, end: 31 } },
+            token: {
+                type: "ElementStart",
+                span: { text: "baz", start: 28, end: 31 },
+            },
             expected_elements: expect.arrayContaining(["foo", "bar"]),
             expected_attributes: [],
         });
+    });
+
+    it("returns stable, deduplicated expected elements for long choice lists", () => {
+        const xml = '<?xml version="1.0"?><root><zzz/></root>';
+        const snapshots: string[][] = [];
+
+        for (let i = 0; i < 10; i++) {
+            const result = relaxngValidator.validate(MANY_CHOICES_SCHEMA, xml);
+            const err = notAllowedErrors(result).find(
+                (e) => e.token.type === "ElementStart",
+            );
+            expect(err).toBeDefined();
+            snapshots.push(err!.expected_elements);
+        }
+
+        const baseline = snapshots[0];
+        for (const s of snapshots) {
+            expect(s).toEqual(baseline);
+            expect(new Set(s).size).toBe(s.length);
+        }
+
+        expect(baseline).toEqual(["a", "b", "c", "d", "e", "f", "g", "h"]);
     });
 
     it("token on a wrong-element error is a structured object with populated fields", () => {
@@ -100,7 +135,10 @@ describe("validate()", () => {
         const errs = notAllowedErrors(result);
         expect(errs.length).toBeGreaterThan(0);
         expect(errs[0]).toMatchObject({
-            token: { type: "ElementStart", span: { text: "unexpected", start: 28, end: 38 } },
+            token: {
+                type: "ElementStart",
+                span: { text: "unexpected", start: 28, end: 38 },
+            },
             expected_elements: [],
         });
     });
@@ -115,9 +153,37 @@ describe("validate()", () => {
         );
         expect(attrErr).toBeDefined();
         expect(attrErr!).toMatchObject({
-            token: { type: "Attribute", span: { text: "bad-attr=\"x\"", start: 27, end: 39 } },
+            token: {
+                type: "Attribute",
+                span: { text: 'bad-attr="x"', start: 27, end: 39 },
+            },
             expected_attributes: expect.arrayContaining(["isbn"]),
         });
+    });
+
+    it("returns stable, deduplicated expected attributes across repeated validations", () => {
+        const xml =
+            '<?xml version="1.0"?><book bad="x"><title>Hi</title></book>';
+        const snapshots: string[][] = [];
+
+        for (let i = 0; i < 10; i++) {
+            const result = relaxngValidator.validate(MANY_ATTRS_SCHEMA, xml);
+            const err = notAllowedErrors(result).find(
+                (e) =>
+                    e.token.type === "Attribute" &&
+                    e.expected_attributes.length > 0,
+            );
+            expect(err).toBeDefined();
+            snapshots.push(err!.expected_attributes);
+        }
+
+        const baseline = snapshots[0];
+        for (const s of snapshots) {
+            expect(s).toEqual(baseline);
+            expect(new Set(s).size).toBe(s.length);
+        }
+
+        expect(baseline).toEqual(["a", "b", "c", "d", "e", "f", "g", "h"]);
     });
 
     it("reports expected_attributes empty for element-level errors", () => {

@@ -13,24 +13,48 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::rc::Rc;
 
-/// Extracts expected element names from validator diagnostics for a `NotAllowed` error.
 fn extract_expected_elements(
     v: &Validator<'_>,
     doc: &str,
     err: &ValidatorError<'_>,
 ) -> Vec<String> {
-    let (_, diagnostics) = v.diagnostic("doc".to_string(), doc.to_string(), err);
-    diagnostics
-        .iter()
-        .find(|d| d.level == codemap_diagnostic::Level::Help)
-        .and_then(|d| d.message.strip_prefix("Expected Element "))
-        .map(|rest| {
-            rest.split_whitespace()
-                .take_while(|s| !s.starts_with(".."))
-                .map(|s| s.to_string())
-                .collect()
-        })
-        .unwrap_or_default()
+    const MAX_SAMPLES: usize = 64;
+    let mut names = HashSet::new();
+    let mut expected_total = None;
+
+    for _ in 0..MAX_SAMPLES {
+        let (_, diagnostics) = v.diagnostic("doc".to_string(), doc.to_string(), err);
+        let Some(rest) = diagnostics
+            .iter()
+            .find(|d| d.level == codemap_diagnostic::Level::Help)
+            .and_then(|d| d.message.strip_prefix("Expected Element "))
+        else {
+            break;
+        };
+
+        let (visible, more_part) = rest.split_once(" .. or one of ").unwrap_or((rest, ""));
+        names.extend(visible.split_whitespace().map(|s| s.to_string()));
+
+        let more = more_part
+            .split_whitespace()
+            .next()
+            .and_then(|n| n.parse::<usize>().ok());
+
+        if let Some(more_count) = more {
+            expected_total.get_or_insert(names.len() + more_count);
+        }
+
+        let Some(total) = expected_total else {
+            break;
+        };
+        if names.len() >= total {
+            break;
+        }
+    }
+
+    let mut names: Vec<String> = names.into_iter().collect();
+    names.sort_unstable();
+    names
 }
 
 /// Converts a library `ValidatorError` into the crate's serializable error type.
@@ -134,7 +158,7 @@ fn run_validation(
                         .get(&span.start())
                         .map(|s| s.as_str())
                         .unwrap_or("");
-                    let attrs = {
+                    let mut attrs = {
                         let borrowed = schema_model.borrow();
                         if let Some(dr) = borrowed.as_ref() {
                             let mut visited = HashSet::new();
@@ -147,6 +171,8 @@ fn run_validation(
                             vec![]
                         }
                     };
+                    attrs.sort_unstable();
+                    attrs.dedup();
                     (vec![], attrs)
                 }
                 ValidatorError::NotAllowed(_) => (extract_expected_elements(&v, doc, &err), vec![]),
