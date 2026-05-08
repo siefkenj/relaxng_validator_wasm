@@ -1,17 +1,13 @@
-# relaxng-validator
+# relaxng-validator-wasm
 
-RELAX NG validation toolkit with:
-
-- A Rust core library and CLI
-- A WASM API package with TypeScript tests
-- A Python extension module via PyO3 with pytest coverage
+Validate XML with RELAX NG in your browser! Try the [Playground](https://siefkenj.github.io/relaxng_validator_wasm/) at https://siefkenj.github.io/relaxng_validator_wasm/
 
 ## Repository layout
 
-- `src/` - core Rust wrapper library and CLI
-- `wasm-api/` - WASM bindings and TypeScript tests
-- `python-api/` - PyO3 Python extension and pytest tests
-- `relaxng-rust/` - upstream relaxng crates (submodule)
+- `src/` - core Rust wrapper around the [RelaxNG Rust](https://github.com/dholroyd/relaxng-rust) project.
+- `wasm-api/` - WASM and Typescript bindings
+- `python-api/` - Python bindings
+- `relaxng-rust/` - upstream RelaxNG Rust crates (submodule)
 
 ## Subproject guides
 
