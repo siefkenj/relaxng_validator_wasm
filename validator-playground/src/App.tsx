@@ -31,6 +31,8 @@ const DEFAULT_XML = `<article xml:id="demo-article" xmlns="http://pretextbook.or
 </article>
 `;
 
+const AUTO_VALIDATE_DEBOUNCE_MS = 300;
+
 function App() {
     const [schemaPreset, setSchemaPreset] = useState<SchemaPreset>("rnc");
     const [schemaAssets, setSchemaAssets] = useState<SchemaAssets | null>(null);
@@ -38,14 +40,19 @@ function App() {
     const [errors, setErrors] = useState<ValidationResponse["errors"]>([]);
     const [lastValidationMessage, setLastValidationMessage] =
         useState<string>("Not yet validated");
-    const [isValidating, setIsValidating] = useState(false);
+    const [isManualValidationRunning, setIsManualValidationRunning] =
+        useState(false);
 
     const validatorRef = useRef<Remote<ValidatorWorkerApi> | null>(null);
+    const validationRunIdRef = useRef(0);
 
     useEffect(() => {
-        const worker = new Worker(new URL("./validator.worker.ts", import.meta.url), {
-            type: "module",
-        });
+        const worker = new Worker(
+            new URL("./validator.worker.ts", import.meta.url),
+            {
+                type: "module",
+            },
+        );
         const validator = wrap<ValidatorWorkerApi>(worker);
         validatorRef.current = validator;
 
@@ -77,7 +84,7 @@ function App() {
             });
             setXmlText(testGoodXml);
             setLastValidationMessage(
-                "Assets loaded. Click Validate to run schema checks.",
+                "Assets loaded. Validating changes automatically.",
             );
         };
 
@@ -108,7 +115,7 @@ function App() {
         return JSON.stringify({ "pretext.rnc": schemaAssets.pretextRnc });
     }, [schemaAssets, schemaPreset]);
 
-    const runValidation = async () => {
+    const runValidation = async (isManualTrigger = false) => {
         if (!schemaAssets || !vfsJson) {
             setLastValidationMessage("Schema assets are not loaded yet.");
             return;
@@ -120,9 +127,19 @@ function App() {
             return;
         }
 
-        setIsValidating(true);
+        const runId = ++validationRunIdRef.current;
+
+        if (isManualTrigger) {
+            setIsManualValidationRunning(true);
+        }
+
         try {
             const result = await validator.validate(vfsJson, xmlText);
+
+            if (runId !== validationRunIdRef.current) {
+                return;
+            }
+
             setErrors(result.errors);
             if (result.errors.length === 0) {
                 setLastValidationMessage("Valid XML. No schema errors found.");
@@ -132,13 +149,33 @@ function App() {
                 );
             }
         } catch (e) {
+            if (runId !== validationRunIdRef.current) {
+                return;
+            }
+
             const message = e instanceof Error ? e.message : String(e);
             setErrors([]);
             setLastValidationMessage(`Validation failed to run: ${message}`);
         } finally {
-            setIsValidating(false);
+            if (isManualTrigger) {
+                setIsManualValidationRunning(false);
+            }
         }
     };
+
+    useEffect(() => {
+        if (!schemaAssets) {
+            return;
+        }
+
+        const timeoutId = window.setTimeout(() => {
+            void runValidation(false);
+        }, AUTO_VALIDATE_DEBOUNCE_MS);
+
+        return () => {
+            window.clearTimeout(timeoutId);
+        };
+    }, [schemaAssets, schemaPreset, vfsJson, xmlText]);
 
     return (
         <main className="page">
@@ -167,10 +204,14 @@ function App() {
                     </select>
                     <button
                         type="button"
-                        onClick={runValidation}
-                        disabled={isValidating}
+                        onClick={() => {
+                            void runValidation(true);
+                        }}
+                        disabled={isManualValidationRunning}
                     >
-                        {isValidating ? "Validating..." : "Validate"}
+                        {isManualValidationRunning
+                            ? "Validating..."
+                            : "Validate"}
                     </button>
                 </div>
             </header>
