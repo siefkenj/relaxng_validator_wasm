@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@codemirror/lang-xml": "^6.1.0",
+    "@codemirror/lint": "^6.9.6",
     "@uiw/react-codemirror": "^4.25.2",
     "comlink": "^4.4.2",
     "react": "^19.2.5",

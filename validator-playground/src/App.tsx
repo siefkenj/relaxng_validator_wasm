@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import CodeMirror from "@uiw/react-codemirror";
-import { xml } from "@codemirror/lang-xml";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { releaseProxy, wrap } from "comlink";
 import type { Remote } from "comlink";
@@ -8,6 +6,7 @@ import type {
     ValidationResponse,
     ValidatorWorkerApi,
 } from "./validatorWorkerApi.ts";
+import { XmlEditor } from "./XmlEditor.tsx";
 import "./App.css";
 
 type SchemaPreset = "rnc" | "rng" | "dev-plus-rnc";
@@ -231,16 +230,10 @@ function App() {
                             Loaded from symlinked tests/test-good.xml; edit and
                             validate.
                         </p>
-                        <CodeMirror
+                        <XmlEditor
                             value={xmlText}
-                            height="calc(72vh - 82px)"
-                            extensions={[xml()]}
-                            onChange={(value) => setXmlText(value)}
-                            basicSetup={{
-                                lineNumbers: true,
-                                foldGutter: true,
-                                highlightActiveLine: true,
-                            }}
+                            errors={errors}
+                            onChange={setXmlText}
                         />
                     </section>
                 </Panel>
