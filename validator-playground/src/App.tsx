@@ -1,8 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { xml } from "@codemirror/lang-xml";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { validate, type WasmValidationError } from "relaxng-validator-wasm-api";
+import { releaseProxy, wrap } from "comlink";
+import type { Remote } from "comlink";
+import type {
+    ValidationResponse,
+    ValidatorWorkerApi,
+} from "./validatorWorkerApi.ts";
 import "./App.css";
 
 type SchemaPreset = "rnc" | "rng" | "dev-plus-rnc";
@@ -30,10 +35,26 @@ function App() {
     const [schemaPreset, setSchemaPreset] = useState<SchemaPreset>("rnc");
     const [schemaAssets, setSchemaAssets] = useState<SchemaAssets | null>(null);
     const [xmlText, setXmlText] = useState<string>(DEFAULT_XML);
-    const [errors, setErrors] = useState<WasmValidationError[]>([]);
+    const [errors, setErrors] = useState<ValidationResponse["errors"]>([]);
     const [lastValidationMessage, setLastValidationMessage] =
         useState<string>("Not yet validated");
     const [isValidating, setIsValidating] = useState(false);
+
+    const validatorRef = useRef<Remote<ValidatorWorkerApi> | null>(null);
+
+    useEffect(() => {
+        const worker = new Worker(new URL("./validator.worker.ts", import.meta.url), {
+            type: "module",
+        });
+        const validator = wrap<ValidatorWorkerApi>(worker);
+        validatorRef.current = validator;
+
+        return () => {
+            validatorRef.current = null;
+            validator[releaseProxy]();
+            worker.terminate();
+        };
+    }, []);
 
     useEffect(() => {
         const loadAssets = async () => {
@@ -87,15 +108,21 @@ function App() {
         return JSON.stringify({ "pretext.rnc": schemaAssets.pretextRnc });
     }, [schemaAssets, schemaPreset]);
 
-    const runValidation = () => {
+    const runValidation = async () => {
         if (!schemaAssets || !vfsJson) {
             setLastValidationMessage("Schema assets are not loaded yet.");
             return;
         }
 
+        const validator = validatorRef.current;
+        if (!validator) {
+            setLastValidationMessage("Validation worker is not ready yet.");
+            return;
+        }
+
         setIsValidating(true);
         try {
-            const result = validate(vfsJson, xmlText);
+            const result = await validator.validate(vfsJson, xmlText);
             setErrors(result.errors);
             if (result.errors.length === 0) {
                 setLastValidationMessage("Valid XML. No schema errors found.");
