@@ -1074,6 +1074,7 @@ dependencies = [
  "relaxng-validator-wasm",
  "serde",
  "serde-json-wasm",
+ "serde_json",
  "tsify",
  "wasm-bindgen",
  "wasm-bindgen-test",

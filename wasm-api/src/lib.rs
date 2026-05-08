@@ -1,7 +1,106 @@
 use relaxng_validator_core::{compile_from_vfs_json, validate_with_vfs_json, ValidationError};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 use wasm_bindgen::prelude::*;
+
+// ---------------------------------------------------------------------------
+// Owned token types
+//
+// These mirror src/xmlparser_serde.rs but use owned Strings instead of
+// borrowed StrSpan<'a>.  Because they derive Serialize normally (not via a
+// serde_json::Value intermediate), serde_wasm_bindgen serializes them as
+// plain JS objects rather than as JS Map objects.
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+pub struct WasmStrSpan {
+    pub text: String,
+    pub start: usize,
+    pub end: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+pub enum WasmElementEnd {
+    Open,
+    Close {
+        prefix: WasmStrSpan,
+        local: WasmStrSpan,
+    },
+    Empty,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+pub enum WasmExternalId {
+    System(WasmStrSpan),
+    Public(WasmStrSpan, WasmStrSpan),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+pub enum WasmEntityDefinition {
+    EntityValue(WasmStrSpan),
+    ExternalId(WasmExternalId),
+}
+
+/// Owned representation of an xmlparser token, suitable for WASM serialization.
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[serde(tag = "type")]
+pub enum WasmToken {
+    Declaration {
+        version: WasmStrSpan,
+        encoding: Option<WasmStrSpan>,
+        standalone: Option<bool>,
+        span: WasmStrSpan,
+    },
+    ProcessingInstruction {
+        target: WasmStrSpan,
+        content: Option<WasmStrSpan>,
+        span: WasmStrSpan,
+    },
+    Comment {
+        text: WasmStrSpan,
+        span: WasmStrSpan,
+    },
+    DtdStart {
+        name: WasmStrSpan,
+        external_id: Option<WasmExternalId>,
+        span: WasmStrSpan,
+    },
+    EmptyDtd {
+        name: WasmStrSpan,
+        external_id: Option<WasmExternalId>,
+        span: WasmStrSpan,
+    },
+    EntityDeclaration {
+        name: WasmStrSpan,
+        definition: WasmEntityDefinition,
+        span: WasmStrSpan,
+    },
+    DtdEnd {
+        span: WasmStrSpan,
+    },
+    ElementStart {
+        prefix: WasmStrSpan,
+        local: WasmStrSpan,
+        span: WasmStrSpan,
+    },
+    Attribute {
+        prefix: WasmStrSpan,
+        local: WasmStrSpan,
+        value: WasmStrSpan,
+        span: WasmStrSpan,
+    },
+    ElementEnd {
+        end: WasmElementEnd,
+        span: WasmStrSpan,
+    },
+    Text {
+        text: WasmStrSpan,
+    },
+    Cdata {
+        text: WasmStrSpan,
+        span: WasmStrSpan,
+    },
+}
 
 #[cfg(test)]
 mod tests {
@@ -31,8 +130,8 @@ pub enum WasmValidationError {
     Xml { message: String },
     /// A token that is not allowed at this point in the grammar.
     NotAllowed {
-        /// JSON-serialized token from the XML parser.
-        token: String,
+        /// The XML parser token that was not allowed.
+        token: WasmToken,
         /// Element names that are valid at this location.
         expected_elements: Vec<String>,
         /// Attribute names that are valid on the current element.
@@ -40,8 +139,8 @@ pub enum WasmValidationError {
     },
     /// A namespace prefix was used without being declared.
     UndefinedNamespacePrefix {
-        /// JSON-serialized prefix info.
-        prefix: String,
+        /// Span info for the undefined prefix.
+        prefix: WasmStrSpan,
     },
     /// An entity reference names an entity that is not defined.
     UndefinedEntity {
@@ -66,13 +165,15 @@ impl From<ValidationError> for WasmValidationError {
                 expected_elements,
                 expected_attributes,
             } => WasmValidationError::NotAllowed {
-                token: serde_json_wasm::to_string(&token).unwrap_or_default(),
+                token: serde_json::from_value(token)
+                    .expect("token value must deserialize into WasmToken"),
                 expected_elements,
                 expected_attributes,
             },
             ValidationError::UndefinedNamespacePrefix { prefix } => {
                 WasmValidationError::UndefinedNamespacePrefix {
-                    prefix: serde_json_wasm::to_string(&prefix).unwrap_or_default(),
+                    prefix: serde_json::from_value(prefix)
+                        .expect("prefix value must deserialize into WasmStrSpan"),
                 }
             }
             ValidationError::UndefinedEntity { name, span } => {

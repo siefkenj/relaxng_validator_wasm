@@ -64,6 +64,8 @@ describe("validate()", () => {
         expect(errs.length).toBeGreaterThan(0);
 
         const first = errs[0];
+        expect(typeof first.token).toBe("object");
+        expect(first.token).not.toBeNull();
         expect(first.expected_elements).toContain("foo");
         expect(first.expected_elements).toContain("bar");
     });
