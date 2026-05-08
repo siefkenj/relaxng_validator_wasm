@@ -53,6 +53,10 @@ describe("validate()", () => {
             '<?xml version="1.0"?><root><unexpected/></root>',
         );
         expect(result.errors.length).toBeGreaterThan(0);
+        expect(notAllowedErrors(result)[0].token).toMatchObject({
+            type: "ElementStart",
+            span: { text: "unexpected", start: 28, end: 38 },
+        });
     });
 
     it("lists expected elements on a wrong-element error", () => {
@@ -63,11 +67,29 @@ describe("validate()", () => {
         const errs = notAllowedErrors(result);
         expect(errs.length).toBeGreaterThan(0);
 
-        const first = errs[0];
-        expect(typeof first.token).toBe("object");
-        expect(first.token).not.toBeNull();
-        expect(first.expected_elements).toContain("foo");
-        expect(first.expected_elements).toContain("bar");
+        expect(errs[0]).toMatchObject({
+            token: { type: "ElementStart", span: { text: "baz", start: 28, end: 31 } },
+            expected_elements: expect.arrayContaining(["foo", "bar"]),
+            expected_attributes: [],
+        });
+    });
+
+    it("token on a wrong-element error is a structured object with populated fields", () => {
+        // Regression: serde_json::Value::Object serialized through serde_wasm_bindgen
+        // v0.4 produces a JS Map, which JSON.stringify renders as "{}".
+        const result = relaxngValidator.validate(
+            CHOICE_SCHEMA,
+            '<?xml version="1.0"?><root><baz/></root>',
+        );
+        const errs = notAllowedErrors(result);
+        expect(errs.length).toBeGreaterThan(0);
+
+        expect(errs[0].token).toEqual({
+            type: "ElementStart",
+            prefix: { text: "", start: 0, end: 0 },
+            local: { text: "baz", start: 28, end: 31 },
+            span: { text: "baz", start: 28, end: 31 },
+        });
     });
 
     it("reports expected_elements empty when content model is text", () => {
@@ -77,7 +99,10 @@ describe("validate()", () => {
         );
         const errs = notAllowedErrors(result);
         expect(errs.length).toBeGreaterThan(0);
-        expect(errs[0].expected_elements).toHaveLength(0);
+        expect(errs[0]).toMatchObject({
+            token: { type: "ElementStart", span: { text: "unexpected", start: 28, end: 38 } },
+            expected_elements: [],
+        });
     });
 
     it("lists expected attributes on a bad-attribute error", () => {
@@ -85,12 +110,14 @@ describe("validate()", () => {
             ATTRS_SCHEMA,
             '<?xml version="1.0"?><book bad-attr="x"><title>Hi</title></book>',
         );
-        // Find a NotAllowed error that lists expected attributes (the bad-attr error)
         const attrErr = notAllowedErrors(result).find(
             (e) => e.expected_attributes.length > 0,
         );
         expect(attrErr).toBeDefined();
-        expect(attrErr!.expected_attributes).toContain("isbn");
+        expect(attrErr!).toMatchObject({
+            token: { type: "Attribute", span: { text: "bad-attr=\"x\"", start: 27, end: 39 } },
+            expected_attributes: expect.arrayContaining(["isbn"]),
+        });
     });
 
     it("reports expected_attributes empty for element-level errors", () => {
@@ -98,11 +125,10 @@ describe("validate()", () => {
             CHOICE_SCHEMA,
             '<?xml version="1.0"?><root><baz/></root>',
         );
-        // All NotAllowed errors here are element-level (wrong child element)
         const errs = notAllowedErrors(result);
         expect(errs.length).toBeGreaterThan(0);
         for (const err of errs) {
-            expect(err.expected_attributes).toHaveLength(0);
+            expect(err).toMatchObject({ expected_attributes: [] });
         }
     });
 
@@ -111,9 +137,19 @@ describe("validate()", () => {
             SIMPLE_SCHEMA,
             '<?xml version="1.0"?><root><bad/></root>',
         );
-        for (const err of result.errors) {
-            expect(typeof err.type).toBe("string");
-        }
+        expect(result.errors).toEqual([
+            {
+                type: "NotAllowed",
+                token: {
+                    type: "ElementStart",
+                    prefix: { text: "", start: 0, end: 0 },
+                    local: { text: "bad", start: 28, end: 31 },
+                    span: { text: "bad", start: 28, end: 31 },
+                },
+                expected_elements: [],
+                expected_attributes: [],
+            },
+        ]);
     });
 });
 
